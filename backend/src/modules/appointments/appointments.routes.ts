@@ -6,16 +6,14 @@ import {
   getAppointments,
   getAppointmentById,
   updateAppointment,
+  deleteAppointment,
 } from "./appointments.controller";
 
 
 const router = Router();
 
 
-// ===============================
-// CREATE APPOINTMENT
-// POST /appointments
-// ===============================
+// CREATE
 router.post(
   "/",
   authMiddleware,
@@ -23,10 +21,7 @@ router.post(
 );
 
 
-// ===============================
-// GET ALL APPOINTMENTS
-// GET /appointments
-// ===============================
+// GET ALL
 router.get(
   "/",
   authMiddleware,
@@ -34,24 +29,28 @@ router.get(
 );
 
 
-// ===============================
-// GET APPOINTMENT BY ID
-// GET /appointments/:id
-// ===============================
+// GET BY ID
 router.get(
   "/:id",
   authMiddleware,
   getAppointmentById
 );
 
-// ===============================
-// UPDATE APPOINTMENT
-// PUT /appointments/:id
-// ===============================
+
+// UPDATE
 router.put(
   "/:id",
   authMiddleware,
   updateAppointment
 );
+
+
+// DELETE
+router.delete(
+  "/:id",
+  authMiddleware,
+  deleteAppointment
+);
+
 
 export default router;
