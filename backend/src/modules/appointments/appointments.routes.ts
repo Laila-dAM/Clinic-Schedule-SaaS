@@ -5,6 +5,7 @@ import {
   createAppointment,
   getAppointments,
   getAppointmentById,
+  updateAppointment,
 } from "./appointments.controller";
 
 
@@ -43,5 +44,14 @@ router.get(
   getAppointmentById
 );
 
+// ===============================
+// UPDATE APPOINTMENT
+// PUT /appointments/:id
+// ===============================
+router.put(
+  "/:id",
+  authMiddleware,
+  updateAppointment
+);
 
 export default router;
