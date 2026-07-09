@@ -274,3 +274,57 @@ const updatedAppointment =
 
   }
 }
+
+// ===============================
+// DELETE APPOINTMENT
+// ===============================
+export async function deleteAppointment(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const id = req.params.id as string;
+
+
+    const appointment =
+      await prisma.appointment.findFirst({
+        where: {
+          id,
+          clinicId: req.user!.clinicId,
+        },
+      });
+
+
+    if (!appointment) {
+      return res.status(404).json({
+        message: "Agendamento não encontrado",
+      });
+    }
+
+
+    await prisma.appointment.delete({
+      where: {
+        id,
+      },
+    });
+
+
+    return res.json({
+      message: "Agendamento removido com sucesso",
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "ERRO DELETE APPOINTMENT:",
+      error
+    );
+
+
+    return res.status(500).json({
+      message: "Erro interno do servidor",
+    });
+
+  }
+}
