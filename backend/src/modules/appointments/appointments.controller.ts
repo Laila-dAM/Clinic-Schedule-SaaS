@@ -3,6 +3,9 @@ import { AuthRequest } from "../../middleware/auth.middleware";
 import prisma from "../../prisma";
 
 
+// ===============================
+// CREATE APPOINTMENT
+// ===============================
 export async function createAppointment(
   req: AuthRequest,
   res: Response
@@ -87,6 +90,9 @@ export async function createAppointment(
 
   }
 }
+
+
+
 // ===============================
 // GET ALL APPOINTMENTS
 // ===============================
@@ -96,23 +102,26 @@ export async function getAppointments(
 ) {
   try {
 
-    const appointments = await prisma.appointment.findMany({
-      where: {
-        clinicId: req.user!.clinicId,
-      },
-      orderBy: {
-        date: "asc",
-      },
-      include: {
-        patient: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
+    const appointments =
+      await prisma.appointment.findMany({
+        where: {
+          clinicId: req.user!.clinicId,
+        },
+
+        orderBy: {
+          date: "asc",
+        },
+
+        include: {
+          patient: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+            },
           },
         },
-      },
-    });
+      });
 
 
     return res.json({
@@ -124,6 +133,66 @@ export async function getAppointments(
 
     console.error(
       "ERRO GET APPOINTMENTS:",
+      error
+    );
+
+
+    return res.status(500).json({
+      message: "Erro interno do servidor",
+    });
+
+  }
+}
+
+
+
+// ===============================
+// GET APPOINTMENT BY ID
+// ===============================
+export async function getAppointmentById(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+
+    const id = req.params.id as string;
+
+
+    const appointment =
+      await prisma.appointment.findFirst({
+        where: {
+          id,
+          clinicId: req.user!.clinicId,
+        },
+
+        include: {
+          patient: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+            },
+          },
+        },
+      });
+
+
+    if (!appointment) {
+      return res.status(404).json({
+        message: "Agendamento não encontrado",
+      });
+    }
+
+
+    return res.json({
+      appointment,
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "ERRO GET APPOINTMENT BY ID:",
       error
     );
 
