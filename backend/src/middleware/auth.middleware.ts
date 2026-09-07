@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-
 export interface AuthRequest extends Request {
   user?: {
     id: string;
@@ -11,17 +10,13 @@ export interface AuthRequest extends Request {
   };
 }
 
-
 export function authMiddleware(
   req: AuthRequest,
   res: Response,
   next: NextFunction
 ) {
-
   try {
-
     const authHeader = req.headers.authorization;
-
 
     if (!authHeader) {
       return res.status(401).json({
@@ -29,35 +24,25 @@ export function authMiddleware(
       });
     }
 
+    const [scheme, token] = authHeader.split(" ");
 
-    const token = authHeader.split(" ")[1];
-
-
-    if (!token) {
+    if (scheme !== "Bearer" || !token) {
       return res.status(401).json({
         message: "Token inválido",
       });
     }
-
 
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET!
     );
 
-
     req.user = decoded as AuthRequest["user"];
 
-
     next();
-
-
   } catch (error) {
-
     return res.status(401).json({
       message: "Token expirado ou inválido",
     });
-
   }
-
 }
