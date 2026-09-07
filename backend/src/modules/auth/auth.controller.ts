@@ -3,7 +3,6 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../../prisma";
 
-
 export async function register(req: Request, res: Response) {
   try {
     const { name, email, password, clinicName } = req.body;
@@ -18,6 +17,16 @@ export async function register(req: Request, res: Response) {
       });
     }
 
+    const ownerRole = await prisma.role.findUnique({
+      where: { name: "owner" },
+    });
+
+    if (!ownerRole) {
+      return res.status(500).json({
+        message: "Role owner não encontrada",
+      });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const clinic = await prisma.clinic.create({
@@ -29,6 +38,7 @@ export async function register(req: Request, res: Response) {
             email,
             password: hashedPassword,
             role: "owner",
+            roleId: ownerRole.id,
           },
         },
       },
@@ -41,6 +51,7 @@ export async function register(req: Request, res: Response) {
         name: true,
         email: true,
         role: true,
+        roleId: true,
         clinicId: true,
         createdAt: true,
       },
@@ -51,7 +62,6 @@ export async function register(req: Request, res: Response) {
       user: createdUser,
       clinicId: clinic.id,
     });
-
   } catch (error) {
     console.error("ERRO REGISTER:", error);
 
@@ -61,18 +71,18 @@ export async function register(req: Request, res: Response) {
   }
 }
 
-
 export async function login(req: Request, res: Response) {
   try {
     const { email, password } = req.body;
-
 
     const user = await prisma.user.findUnique({
       where: {
         email,
       },
+      include: {
+        roleRef: true,
+      },
     });
-
 
     if (!user) {
       return res.status(404).json({
@@ -80,12 +90,10 @@ export async function login(req: Request, res: Response) {
       });
     }
 
-
     const passwordIsValid = await bcrypt.compare(
       password,
       user.password
     );
-
 
     if (!passwordIsValid) {
       return res.status(401).json({
@@ -93,9 +101,7 @@ export async function login(req: Request, res: Response) {
       });
     }
 
-
     const secret = process.env.JWT_SECRET;
-
 
     if (!secret) {
       return res.status(500).json({
@@ -103,12 +109,11 @@ export async function login(req: Request, res: Response) {
       });
     }
 
-
     const token = jwt.sign(
       {
         id: user.id,
         email: user.email,
-        role: user.role,
+        role: user.roleRef?.name ?? user.role,
         clinicId: user.clinicId,
       },
       secret,
@@ -117,9 +122,7 @@ export async function login(req: Request, res: Response) {
       }
     );
 
-
     console.log("LOGIN NOVO COM JWT");
-
 
     return res.status(200).json({
       message: "Login realizado com sucesso",
@@ -128,12 +131,11 @@ export async function login(req: Request, res: Response) {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        role: user.roleRef?.name ?? user.role,
+        roleId: user.roleId,
         clinicId: user.clinicId,
       },
     });
-
-
   } catch (error) {
     console.error("ERRO LOGIN:", error);
 
