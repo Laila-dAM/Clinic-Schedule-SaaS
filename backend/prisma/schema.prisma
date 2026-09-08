@@ -25,16 +25,18 @@ model User {
   clinicId  String
   createdAt DateTime @default(now())
   roleId    String?
-  clinic    Clinic   @relation(fields: [clinicId], references: [id])
-  roleRef   Role?    @relation(fields: [roleId], references: [id])
+
+  clinic  Clinic @relation(fields: [clinicId], references: [id])
+  roleRef Role?  @relation(fields: [roleId], references: [id])
 }
 
 model Patient {
-  id           String        @id @default(uuid())
-  name         String
-  phone        String?
-  clinicId     String
-  createdAt    DateTime      @default(now())
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  clinicId  String
+  createdAt DateTime @default(now())
+
   appointments Appointment[]
   clinic       Clinic        @relation(fields: [clinicId], references: [id])
 }
@@ -48,8 +50,9 @@ model Appointment {
   clinicId  String
   patientId String
   createdAt DateTime @default(now())
-  clinic    Clinic   @relation(fields: [clinicId], references: [id])
-  patient   Patient  @relation(fields: [patientId], references: [id])
+
+  clinic  Clinic  @relation(fields: [clinicId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
 
   @@unique([clinicId, date, time])
 }
@@ -58,5 +61,15 @@ model Role {
   id        String   @id @default(uuid())
   name      String   @unique
   createdAt DateTime @default(now())
-  users     User[]
+
+  users       User[]
+  permissions Permission[]
+}
+
+model Permission {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  roles Role[]
 }
