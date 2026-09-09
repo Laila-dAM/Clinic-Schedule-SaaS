@@ -68,7 +68,6 @@ export async function createAppointment(
     });
 
   } catch (error) {
-
     console.error(
       "ERRO CREATE APPOINTMENT:",
       error
@@ -77,7 +76,6 @@ export async function createAppointment(
     return res.status(500).json({
       message: "Erro interno do servidor",
     });
-
   }
 }
 
@@ -89,7 +87,6 @@ export async function getAppointments(
   res: Response
 ) {
   try {
-
     const appointments =
       await prisma.appointment.findMany({
         where: {
@@ -116,7 +113,6 @@ export async function getAppointments(
     });
 
   } catch (error) {
-
     console.error(
       "ERRO GET APPOINTMENTS:",
       error
@@ -125,7 +121,6 @@ export async function getAppointments(
     return res.status(500).json({
       message: "Erro interno do servidor",
     });
-
   }
 }
 
@@ -137,7 +132,6 @@ export async function getAppointmentById(
   res: Response
 ) {
   try {
-
     const id = req.params.id as string;
 
     const appointment =
@@ -169,7 +163,6 @@ export async function getAppointmentById(
     });
 
   } catch (error) {
-
     console.error(
       "ERRO GET APPOINTMENT BY ID:",
       error
@@ -178,7 +171,6 @@ export async function getAppointmentById(
     return res.status(500).json({
       message: "Erro interno do servidor",
     });
-
   }
 }
 
@@ -190,7 +182,6 @@ export async function updateAppointment(
   res: Response
 ) {
   try {
-
     const id = req.params.id as string;
 
     const {
@@ -200,69 +191,71 @@ export async function updateAppointment(
       service,
     } = req.body;
 
-    const appointment = await prisma.appointment.findFirst({
-      where: {
-        id,
-        clinicId: req.user!.clinicId,
-      },
-    });
+    const appointment =
+      await prisma.appointment.findFirst({
+        where: {
+          id,
+          clinicId: req.user!.clinicId,
+        },
+      });
 
     if (!appointment) {
       return res.status(404).json({
         message: "Agendamento não encontrado",
       });
     }
-const patient = await prisma.patient.findFirst({
-  where: {
-    id: patientId,
-    clinicId: req.user!.clinicId,
-  },
-});
 
-if (!patient) {
-  return res.status(404).json({
-    message: "Paciente não encontrado",
-  });
-}
+    const patient =
+      await prisma.patient.findFirst({
+        where: {
+          id: patientId,
+          clinicId: req.user!.clinicId,
+        },
+      });
 
-const appointmentExists =
-  await prisma.appointment.findFirst({
-    where: {
-      clinicId: req.user!.clinicId,
-      date: new Date(date),
-      time,
-      NOT: {
-        id,
-      },
-    },
-  });
+    if (!patient) {
+      return res.status(404).json({
+        message: "Paciente não encontrado",
+      });
+    }
 
-if (appointmentExists) {
-  return res.status(400).json({
-    message: "Já existe um agendamento nesse horário",
-  });
-}
+    const appointmentExists =
+      await prisma.appointment.findFirst({
+        where: {
+          clinicId: req.user!.clinicId,
+          date: new Date(date),
+          time,
+          NOT: {
+            id,
+          },
+        },
+      });
 
-const updatedAppointment =
-  await prisma.appointment.update({
-    where: {
-      id,
-    },
-    data: {
-      patientId,
-      date: new Date(date),
-      time,
-      service,
-    },
-  });
+    if (appointmentExists) {
+      return res.status(400).json({
+        message: "Já existe um agendamento nesse horário",
+      });
+    }
 
-  return res.json({
-  message: "Agendamento atualizado com sucesso",
-  appointment: updatedAppointment,
-});
+    const updatedAppointment =
+      await prisma.appointment.update({
+        where: {
+          id,
+        },
+        data: {
+          patientId,
+          date: new Date(date),
+          time,
+          service,
+        },
+      });
+
+    return res.json({
+      message: "Agendamento atualizado com sucesso",
+      appointment: updatedAppointment,
+    });
 
   } catch (error) {
-
     console.error(
       "ERRO UPDATE APPOINTMENT:",
       error
@@ -271,7 +264,71 @@ const updatedAppointment =
     return res.status(500).json({
       message: "Erro interno do servidor",
     });
+  }
+}
 
+// ===============================
+// UPDATE APPOINTMENT STATUS
+// ===============================
+export async function updateAppointmentStatus(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const id = req.params.id as string;
+    const { status } = req.body;
+
+    const allowedStatuses = [
+      "scheduled",
+      "confirmed",
+      "completed",
+      "cancelled",
+    ];
+
+    if (!status || !allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Status inválido",
+      });
+    }
+
+    const appointment =
+      await prisma.appointment.findFirst({
+        where: {
+          id,
+          clinicId: req.user!.clinicId,
+        },
+      });
+
+    if (!appointment) {
+      return res.status(404).json({
+        message: "Agendamento não encontrado",
+      });
+    }
+
+    const updatedAppointment =
+      await prisma.appointment.update({
+        where: {
+          id,
+        },
+        data: {
+          status,
+        },
+      });
+
+    return res.json({
+      message: "Status atualizado com sucesso",
+      appointment: updatedAppointment,
+    });
+
+  } catch (error) {
+    console.error(
+      "ERRO UPDATE APPOINTMENT STATUS:",
+      error
+    );
+
+    return res.status(500).json({
+      message: "Erro interno do servidor",
+    });
   }
 }
 
@@ -285,7 +342,6 @@ export async function deleteAppointment(
   try {
     const id = req.params.id as string;
 
-
     const appointment =
       await prisma.appointment.findFirst({
         where: {
@@ -294,13 +350,11 @@ export async function deleteAppointment(
         },
       });
 
-
     if (!appointment) {
       return res.status(404).json({
         message: "Agendamento não encontrado",
       });
     }
-
 
     await prisma.appointment.delete({
       where: {
@@ -308,23 +362,18 @@ export async function deleteAppointment(
       },
     });
 
-
     return res.json({
       message: "Agendamento removido com sucesso",
     });
 
-
   } catch (error) {
-
     console.error(
       "ERRO DELETE APPOINTMENT:",
       error
     );
 
-
     return res.status(500).json({
       message: "Erro interno do servidor",
     });
-
   }
 }

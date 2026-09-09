@@ -1,4 +1,5 @@
 import { Router } from "express";
+
 import { authMiddleware } from "../../middleware/auth.middleware";
 
 import {
@@ -6,12 +7,11 @@ import {
   getAppointments,
   getAppointmentById,
   updateAppointment,
+  updateAppointmentStatus,
   deleteAppointment,
 } from "./appointments.controller";
 
-
 const router = Router();
-
 
 // CREATE
 router.post(
@@ -20,14 +20,12 @@ router.post(
   createAppointment
 );
 
-
 // GET ALL
 router.get(
   "/",
   authMiddleware,
   getAppointments
 );
-
 
 // GET BY ID
 router.get(
@@ -36,7 +34,6 @@ router.get(
   getAppointmentById
 );
 
-
 // UPDATE
 router.put(
   "/:id",
@@ -44,6 +41,12 @@ router.put(
   updateAppointment
 );
 
+// UPDATE STATUS
+router.patch(
+  "/:id/status",
+  authMiddleware,
+  updateAppointmentStatus
+);
 
 // DELETE
 router.delete(
@@ -51,6 +54,5 @@ router.delete(
   authMiddleware,
   deleteAppointment
 );
-
 
 export default router;
