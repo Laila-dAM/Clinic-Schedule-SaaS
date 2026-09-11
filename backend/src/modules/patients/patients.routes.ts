@@ -54,6 +54,7 @@ router.get(
 
 router.put(
   "/:id",
+  requireRole("owner"),
   updatePatient
 );
 
