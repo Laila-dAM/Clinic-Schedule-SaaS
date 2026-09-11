@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import { authMiddleware } from "../../middleware/auth.middleware";
+import { requireRole } from "../../middleware/role.middleware";
 
 import {
   createAppointment,
@@ -13,45 +14,39 @@ import {
 
 const router = Router();
 
-// CREATE
+router.use(authMiddleware);
+
 router.post(
   "/",
-  authMiddleware,
+  requireRole("owner"),
   createAppointment
 );
 
-// GET ALL
 router.get(
   "/",
-  authMiddleware,
   getAppointments
 );
 
-// GET BY ID
 router.get(
   "/:id",
-  authMiddleware,
   getAppointmentById
 );
 
-// UPDATE
 router.put(
   "/:id",
-  authMiddleware,
+  requireRole("owner"),
   updateAppointment
 );
 
-// UPDATE STATUS
 router.patch(
   "/:id/status",
-  authMiddleware,
+  requireRole("owner"),
   updateAppointmentStatus
 );
 
-// DELETE
 router.delete(
   "/:id",
-  authMiddleware,
+  requireRole("owner"),
   deleteAppointment
 );
 
