@@ -13,13 +13,7 @@ import {
 
 const router = Router();
 
-// Todas as rotas de pacientes precisam de autenticação
 router.use(authMiddleware);
-
-// ===============================
-// CREATE
-// POST /patients
-// ===============================
 
 router.post(
   "/",
@@ -27,30 +21,15 @@ router.post(
   createPatient
 );
 
-// ===============================
-// READ ALL
-// GET /patients
-// ===============================
-
 router.get(
   "/",
   getPatients
 );
 
-// ===============================
-// READ ONE
-// GET /patients/:id
-// ===============================
-
 router.get(
   "/:id",
   getPatientById
 );
-
-// ===============================
-// UPDATE
-// PUT /patients/:id
-// ===============================
 
 router.put(
   "/:id",
@@ -58,13 +37,9 @@ router.put(
   updatePatient
 );
 
-// ===============================
-// DELETE
-// DELETE /patients/:id
-// ===============================
-
 router.delete(
   "/:id",
+  requireRole("owner"),
   deletePatient
 );
 
