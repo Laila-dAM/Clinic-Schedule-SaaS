@@ -106,7 +106,8 @@ export async function updateUser(
   res: Response
 ) {
   try {
-const id = String(req.params.id);    const { name, email, password, role } = req.body;
+    const id = String(req.params.id);
+    const { name, email, password, role } = req.body;
 
     const user = await prisma.user.findFirst({
       where: {
@@ -185,6 +186,50 @@ const id = String(req.params.id);    const { name, email, password, role } = req
     });
   } catch (error) {
     console.error("ERROR UPDATE USER:", error);
+
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+}
+
+export async function deleteUser(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const id = String(req.params.id);
+
+    const user = await prisma.user.findFirst({
+      where: {
+        id,
+        clinicId: req.user!.clinicId,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    if (user.id === req.user!.id) {
+      return res.status(400).json({
+        message: "You cannot delete your own account",
+      });
+    }
+
+    await prisma.user.delete({
+      where: {
+        id,
+      },
+    });
+
+    return res.json({
+      message: "User deleted successfully",
+    });
+  } catch (error) {
+    console.error("ERROR DELETE USER:", error);
 
     return res.status(500).json({
       message: "Internal server error",

@@ -7,6 +7,7 @@ import {
   getUsers,
   createUser,
   updateUser,
+  deleteUser,
 } from "./users.controller";
 
 const router = Router();
@@ -29,6 +30,12 @@ router.put(
   "/:id",
   requireRole("owner"),
   updateUser
+);
+
+router.delete(
+  "/:id",
+  requireRole("owner"),
+  deleteUser
 );
 
 export default router;
