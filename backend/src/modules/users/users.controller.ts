@@ -50,9 +50,7 @@ export async function createUser(
       });
     }
 
-    const allowedRoles = ["staff"];
-
-    if (role && !allowedRoles.includes(role)) {
+    if (role && role !== "staff") {
       return res.status(400).json({
         message: "Invalid role",
       });
@@ -96,6 +94,97 @@ export async function createUser(
     });
   } catch (error) {
     console.error("ERROR CREATE USER:", error);
+
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+}
+
+export async function updateUser(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+const id = String(req.params.id);    const { name, email, password, role } = req.body;
+
+    const user = await prisma.user.findFirst({
+      where: {
+        id,
+        clinicId: req.user!.clinicId,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    if (role && role !== "staff") {
+      return res.status(400).json({
+        message: "Invalid role",
+      });
+    }
+
+    if (email && email !== user.email) {
+      const emailExists = await prisma.user.findUnique({
+        where: {
+          email,
+        },
+      });
+
+      if (emailExists) {
+        return res.status(400).json({
+          message: "Email already registered",
+        });
+      }
+    }
+
+    const data: {
+      name?: string;
+      email?: string;
+      password?: string;
+      role?: string;
+    } = {};
+
+    if (name) {
+      data.name = name;
+    }
+
+    if (email) {
+      data.email = email;
+    }
+
+    if (role) {
+      data.role = role;
+    }
+
+    if (password) {
+      data.password = await bcrypt.hash(password, 10);
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: {
+        id,
+      },
+      data,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        clinicId: true,
+        createdAt: true,
+      },
+    });
+
+    return res.json({
+      message: "User updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("ERROR UPDATE USER:", error);
 
     return res.status(500).json({
       message: "Internal server error",

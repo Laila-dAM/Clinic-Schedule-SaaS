@@ -6,6 +6,7 @@ import { requireRole } from "../../middleware/role.middleware";
 import {
   getUsers,
   createUser,
+  updateUser,
 } from "./users.controller";
 
 const router = Router();
@@ -22,6 +23,12 @@ router.post(
   "/",
   requireRole("owner"),
   createUser
+);
+
+router.put(
+  "/:id",
+  requireRole("owner"),
+  updateUser
 );
 
 export default router;
