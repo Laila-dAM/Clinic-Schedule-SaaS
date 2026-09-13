@@ -4,6 +4,44 @@ import bcrypt from "bcryptjs";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import prisma from "../../prisma";
 
+export async function getMe(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const user = await prisma.user.findFirst({
+      where: {
+        id: req.user!.id,
+        clinicId: req.user!.clinicId,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        clinicId: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    return res.json({
+      user,
+    });
+  } catch (error) {
+    console.error("ERROR GET ME:", error);
+
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+}
+
 export async function getUsers(
   req: AuthRequest,
   res: Response

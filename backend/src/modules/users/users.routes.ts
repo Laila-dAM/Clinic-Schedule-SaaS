@@ -4,6 +4,7 @@ import { authMiddleware } from "../../middleware/auth.middleware";
 import { requireRole } from "../../middleware/role.middleware";
 
 import {
+  getMe,
   getUsers,
   createUser,
   updateUser,
@@ -13,6 +14,11 @@ import {
 const router = Router();
 
 router.use(authMiddleware);
+
+router.get(
+  "/me",
+  getMe
+);
 
 router.get(
   "/",
