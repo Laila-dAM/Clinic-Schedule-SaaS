@@ -1,7 +1,7 @@
 import { Router } from "express";
 
 import { authMiddleware } from "../../middleware/auth.middleware";
-import { requireRole } from "../../middleware/role.middleware";
+import { requirePermission } from "../../middleware/permission.middleware";
 
 import {
   getMe,
@@ -22,25 +22,25 @@ router.get(
 
 router.get(
   "/",
-  requireRole("owner"),
+  requirePermission("users.read"),
   getUsers
 );
 
 router.post(
   "/",
-  requireRole("owner"),
+  requirePermission("users.create"),
   createUser
 );
 
 router.put(
   "/:id",
-  requireRole("owner"),
+  requirePermission("users.update"),
   updateUser
 );
 
 router.delete(
   "/:id",
-  requireRole("owner"),
+  requirePermission("users.delete"),
   deleteUser
 );
 

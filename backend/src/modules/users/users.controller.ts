@@ -4,6 +4,15 @@ import bcrypt from "bcryptjs";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import prisma from "../../prisma";
 
+const allowedRoles = [
+  "owner",
+  "admin",
+  "manager",
+  "professional",
+  "receptionist",
+  "financial",
+];
+
 export async function getMe(
   req: AuthRequest,
   res: Response
@@ -88,7 +97,9 @@ export async function createUser(
       });
     }
 
-    if (role && role !== "staff") {
+    const selectedRole = role || "professional";
+
+    if (!allowedRoles.includes(selectedRole)) {
       return res.status(400).json({
         message: "Invalid role",
       });
@@ -106,6 +117,18 @@ export async function createUser(
       });
     }
 
+    const roleRecord = await prisma.role.findUnique({
+      where: {
+        name: selectedRole,
+      },
+    });
+
+    if (!roleRecord) {
+      return res.status(400).json({
+        message: "Role not found",
+      });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
@@ -113,7 +136,8 @@ export async function createUser(
         name,
         email,
         password: hashedPassword,
-        role: role || "staff",
+        role: selectedRole,
+        roleId: roleRecord.id,
         clinicId: req.user!.clinicId,
       },
       select: {
@@ -121,6 +145,7 @@ export async function createUser(
         name: true,
         email: true,
         role: true,
+        roleId: true,
         clinicId: true,
         createdAt: true,
       },
@@ -160,7 +185,7 @@ export async function updateUser(
       });
     }
 
-    if (role && role !== "staff") {
+    if (role && !allowedRoles.includes(role)) {
       return res.status(400).json({
         message: "Invalid role",
       });
@@ -185,6 +210,7 @@ export async function updateUser(
       email?: string;
       password?: string;
       role?: string;
+      roleId?: string;
     } = {};
 
     if (name) {
@@ -196,7 +222,20 @@ export async function updateUser(
     }
 
     if (role) {
+      const roleRecord = await prisma.role.findUnique({
+        where: {
+          name: role,
+        },
+      });
+
+      if (!roleRecord) {
+        return res.status(400).json({
+          message: "Role not found",
+        });
+      }
+
       data.role = role;
+      data.roleId = roleRecord.id;
     }
 
     if (password) {
@@ -212,7 +251,9 @@ export async function updateUser(
         id: true,
         name: true,
         email: true,
+        password: false,
         role: true,
+        roleId: true,
         clinicId: true,
         createdAt: true,
       },
