@@ -105,6 +105,12 @@ export async function createUser(
       });
     }
 
+    if (selectedRole === "owner" && req.user!.role !== "owner") {
+      return res.status(403).json({
+        message: "Only owners can assign the owner role",
+      });
+    }
+
     const userExists = await prisma.user.findUnique({
       where: {
         email,
@@ -188,6 +194,12 @@ export async function updateUser(
     if (role && !allowedRoles.includes(role)) {
       return res.status(400).json({
         message: "Invalid role",
+      });
+    }
+
+    if (role === "owner" && req.user!.role !== "owner") {
+      return res.status(403).json({
+        message: "Only owners can assign the owner role",
       });
     }
 
