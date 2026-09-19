@@ -84,6 +84,47 @@ export async function getUsers(
   }
 }
 
+export async function getUserById(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const id = String(req.params.id);
+
+    const user = await prisma.user.findFirst({
+      where: {
+        id,
+        clinicId: req.user!.clinicId,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        roleId: true,
+        clinicId: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    return res.json({
+      user,
+    });
+  } catch (error) {
+    console.error("ERROR GET USER BY ID:", error);
+
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+}
+
 export async function createUser(
   req: AuthRequest,
   res: Response

@@ -6,6 +6,7 @@ import { requirePermission } from "../../middleware/permission.middleware";
 import {
   getMe,
   getUsers,
+  getUserById,
   createUser,
   updateUser,
   deleteUser,
@@ -24,6 +25,12 @@ router.get(
   "/",
   requirePermission("users.read"),
   getUsers
+);
+
+router.get(
+  "/:id",
+  requirePermission("users.read"),
+  getUserById
 );
 
 router.post(
