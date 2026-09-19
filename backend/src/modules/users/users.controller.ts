@@ -232,6 +232,12 @@ export async function updateUser(
       });
     }
 
+    if (user.id === req.user!.id && role) {
+      return res.status(400).json({
+        message: "You cannot change your own role",
+      });
+    }
+
     if (role && !allowedRoles.includes(role)) {
       return res.status(400).json({
         message: "Invalid role",
