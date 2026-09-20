@@ -250,6 +250,21 @@ export async function updateUser(
       });
     }
 
+    if (user.role === "owner" && role && role !== "owner") {
+      const ownerCount = await prisma.user.count({
+        where: {
+          clinicId: req.user!.clinicId,
+          role: "owner",
+        },
+      });
+
+      if (ownerCount === 1) {
+        return res.status(400).json({
+          message: "The clinic must have at least one owner",
+        });
+      }
+    }
+
     if (email && email !== user.email) {
       const emailExists = await prisma.user.findUnique({
         where: {
