@@ -28,6 +28,7 @@ export async function getMe(
         name: true,
         email: true,
         role: true,
+        roleId: true,
         clinicId: true,
         createdAt: true,
       },
@@ -65,6 +66,8 @@ export async function getUsers(
         name: true,
         email: true,
         role: true,
+        roleId: true,
+        clinicId: true,
         createdAt: true,
       },
       orderBy: {
@@ -370,6 +373,21 @@ export async function deleteUser(
       return res.status(400).json({
         message: "You cannot delete your own account",
       });
+    }
+
+    if (user.role === "owner") {
+      const ownerCount = await prisma.user.count({
+        where: {
+          clinicId: req.user!.clinicId,
+          role: "owner",
+        },
+      });
+
+      if (ownerCount === 1) {
+        return res.status(400).json({
+          message: "The clinic must have at least one owner",
+        });
+      }
     }
 
     await prisma.user.delete({
