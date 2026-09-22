@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import prisma from "../prisma";
 
 export interface AuthRequest extends Request {
   user?: {
@@ -10,7 +11,7 @@ export interface AuthRequest extends Request {
   };
 }
 
-export function authMiddleware(
+export async function authMiddleware(
   req: AuthRequest,
   res: Response,
   next: NextFunction
@@ -37,7 +38,32 @@ export function authMiddleware(
       process.env.JWT_SECRET!
     );
 
-    req.user = decoded as AuthRequest["user"];
+    const decodedUser = decoded as AuthRequest["user"];
+
+if (!decodedUser?.id) {
+  return res.status(401).json({
+    message: "Token inválido",
+  });
+}
+
+const user = await prisma.user.findUnique({
+  where: {
+    id: decodedUser.id,
+  },
+});
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Usuário não encontrado",
+      });
+    }
+
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      clinicId: user.clinicId,
+    };
 
     next();
   } catch (error) {
