@@ -24,7 +24,7 @@ model User {
   role      String   @default("owner")
   clinicId  String
   createdAt DateTime @default(now())
-  roleId    String?
+  roleId    String
 
   clinic  Clinic @relation(fields: [clinicId], references: [id])
   roleRef Role?  @relation(fields: [roleId], references: [id])
