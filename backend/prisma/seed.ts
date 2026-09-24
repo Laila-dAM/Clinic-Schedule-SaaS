@@ -1,4 +1,5 @@
 import prisma from "../src/prisma";
+
 async function main() {
   console.log("Seeding roles...");
 
@@ -58,16 +59,19 @@ async function main() {
       "patients.create",
       "patients.update",
       "patients.delete",
+
       "appointments.read",
       "appointments.create",
       "appointments.update",
       "appointments.delete",
+
       "users.read",
     ],
 
     professional: [
       "patients.read",
       "patients.update",
+
       "appointments.read",
       "appointments.create",
       "appointments.update",
@@ -77,6 +81,7 @@ async function main() {
       "patients.read",
       "patients.create",
       "patients.update",
+
       "appointments.read",
       "appointments.create",
       "appointments.update",
@@ -98,6 +103,15 @@ async function main() {
     if (!role) {
       throw new Error(`Role ${roleName} not found`);
     }
+
+    await prisma.role.update({
+      where: { id: role.id },
+      data: {
+        permissions: {
+          set: [],
+        },
+      },
+    });
 
     for (const permissionName of permissionNames) {
       const permission = await prisma.permission.findUnique({
@@ -123,27 +137,6 @@ async function main() {
     }
   }
 
-  console.log("Linking existing users to roles...");
-
-  const ownerRole = await prisma.role.findUnique({
-    where: { name: "owner" },
-  });
-
-  if (!ownerRole) {
-    throw new Error("Owner role not found");
-  }
-
-  await prisma.user.updateMany({
-    where: {
-      role: "owner",
-      roleId: null,
-    },
-    data: {
-      roleId: ownerRole.id,
-    },
-  });
-
-  console.log("Users linked successfully.");
   console.log("Permissions assigned successfully.");
 }
 
