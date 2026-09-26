@@ -7,6 +7,7 @@ import appointmentsRoutes from "./modules/appointments/appointments.routes";
 import usersRoutes from "./modules/users/users.routes";
 
 import { authMiddleware } from "./middleware/auth.middleware";
+import { errorMiddleware } from "./middleware/error.middleware";
 
 const app = express();
 
@@ -32,5 +33,13 @@ app.get("/me", authMiddleware, (req: any, res) => {
     user: req.user,
   });
 });
+
+app.use((req, res) => {
+  return res.status(404).json({
+    message: "Rota não encontrada",
+  });
+});
+
+app.use(errorMiddleware);
 
 export default app;
