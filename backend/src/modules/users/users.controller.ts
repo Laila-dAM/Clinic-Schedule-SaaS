@@ -36,7 +36,7 @@ export async function getMe(
 
     if (!user) {
       return res.status(404).json({
-        message: "User not found",
+        message: "Usuário não encontrado",
       });
     }
 
@@ -44,10 +44,10 @@ export async function getMe(
       user,
     });
   } catch (error) {
-    console.error("ERROR GET ME:", error);
+    console.error("ERRO GET ME:", error);
 
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Erro interno do servidor",
     });
   }
 }
@@ -79,10 +79,10 @@ export async function getUsers(
       users,
     });
   } catch (error) {
-    console.error("ERROR GET USERS:", error);
+    console.error("ERRO GET USERS:", error);
 
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Erro interno do servidor",
     });
   }
 }
@@ -112,7 +112,7 @@ export async function getUserById(
 
     if (!user) {
       return res.status(404).json({
-        message: "User not found",
+        message: "Usuário não encontrado",
       });
     }
 
@@ -120,10 +120,10 @@ export async function getUserById(
       user,
     });
   } catch (error) {
-    console.error("ERROR GET USER BY ID:", error);
+    console.error("ERRO GET USER BY ID:", error);
 
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Erro interno do servidor",
     });
   }
 }
@@ -137,7 +137,7 @@ export async function createUser(
 
     if (!name || !email || !password) {
       return res.status(400).json({
-        message: "Name, email and password are required",
+        message: "Nome, email e senha são obrigatórios",
       });
     }
 
@@ -145,13 +145,13 @@ export async function createUser(
 
     if (!allowedRoles.includes(selectedRole)) {
       return res.status(400).json({
-        message: "Invalid role",
+        message: "Cargo inválido",
       });
     }
 
     if (selectedRole === "owner" && req.user!.role !== "owner") {
       return res.status(403).json({
-        message: "Only owners can assign the owner role",
+        message: "Somente owners podem atribuir o cargo de owner",
       });
     }
 
@@ -163,7 +163,7 @@ export async function createUser(
 
     if (userExists) {
       return res.status(400).json({
-        message: "Email already registered",
+        message: "Email já cadastrado",
       });
     }
 
@@ -175,7 +175,7 @@ export async function createUser(
 
     if (!roleRecord) {
       return res.status(400).json({
-        message: "Role not found",
+        message: "Cargo não encontrado",
       });
     }
 
@@ -202,14 +202,14 @@ export async function createUser(
     });
 
     return res.status(201).json({
-      message: "User created successfully",
+      message: "Usuário criado com sucesso",
       user,
     });
   } catch (error) {
-    console.error("ERROR CREATE USER:", error);
+    console.error("ERRO CREATE USER:", error);
 
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Erro interno do servidor",
     });
   }
 }
@@ -231,25 +231,25 @@ export async function updateUser(
 
     if (!user) {
       return res.status(404).json({
-        message: "User not found",
+        message: "Usuário não encontrado",
       });
     }
 
     if (user.id === req.user!.id && role) {
       return res.status(400).json({
-        message: "You cannot change your own role",
+        message: "Você não pode alterar o próprio cargo",
       });
     }
 
     if (role && !allowedRoles.includes(role)) {
       return res.status(400).json({
-        message: "Invalid role",
+        message: "Cargo inválido",
       });
     }
 
     if (role === "owner" && req.user!.role !== "owner") {
       return res.status(403).json({
-        message: "Only owners can assign the owner role",
+        message: "Somente owners podem atribuir o cargo de owner",
       });
     }
 
@@ -263,7 +263,7 @@ export async function updateUser(
 
       if (ownerCount === 1) {
         return res.status(400).json({
-          message: "The clinic must have at least one owner",
+          message: "A clínica deve possuir pelo menos um owner",
         });
       }
     }
@@ -277,7 +277,7 @@ export async function updateUser(
 
       if (emailExists) {
         return res.status(400).json({
-          message: "Email already registered",
+          message: "Email já cadastrado",
         });
       }
     }
@@ -307,7 +307,7 @@ export async function updateUser(
 
       if (!roleRecord) {
         return res.status(400).json({
-          message: "Role not found",
+          message: "Cargo não encontrado",
         });
       }
 
@@ -337,14 +337,14 @@ export async function updateUser(
     });
 
     return res.json({
-      message: "User updated successfully",
+      message: "Usuário atualizado com sucesso",
       user: updatedUser,
     });
   } catch (error) {
-    console.error("ERROR UPDATE USER:", error);
+    console.error("ERRO UPDATE USER:", error);
 
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Erro interno do servidor",
     });
   }
 }
@@ -365,13 +365,13 @@ export async function deleteUser(
 
     if (!user) {
       return res.status(404).json({
-        message: "User not found",
+        message: "Usuário não encontrado",
       });
     }
 
     if (user.id === req.user!.id) {
       return res.status(400).json({
-        message: "You cannot delete your own account",
+        message: "Você não pode excluir a própria conta",
       });
     }
 
@@ -385,7 +385,7 @@ export async function deleteUser(
 
       if (ownerCount === 1) {
         return res.status(400).json({
-          message: "The clinic must have at least one owner",
+          message: "A clínica deve possuir pelo menos um owner",
         });
       }
     }
@@ -397,13 +397,13 @@ export async function deleteUser(
     });
 
     return res.json({
-      message: "User deleted successfully",
+      message: "Usuário excluído com sucesso",
     });
   } catch (error) {
-    console.error("ERROR DELETE USER:", error);
+    console.error("ERRO DELETE USER:", error);
 
     return res.status(500).json({
-      message: "Internal server error",
+      message: "Erro interno do servidor",
     });
   }
 }
