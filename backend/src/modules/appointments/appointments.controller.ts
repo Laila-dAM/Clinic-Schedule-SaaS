@@ -2,9 +2,13 @@ import { Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import prisma from "../../prisma";
 
-// ===============================
-// CREATE APPOINTMENT
-// ===============================
+const allowedStatuses = [
+  "scheduled",
+  "confirmed",
+  "completed",
+  "cancelled",
+];
+
 export async function createAppointment(
   req: AuthRequest,
   res: Response
@@ -17,9 +21,26 @@ export async function createAppointment(
       service,
     } = req.body;
 
-    if (!patientId || !date || !time || !service) {
+    if (
+      typeof patientId !== "string" ||
+      !patientId.trim() ||
+      typeof date !== "string" ||
+      !date.trim() ||
+      typeof time !== "string" ||
+      !time.trim() ||
+      typeof service !== "string" ||
+      !service.trim()
+    ) {
       return res.status(400).json({
         message: "Todos os campos são obrigatórios",
+      });
+    }
+
+    const appointmentDate = new Date(date);
+
+    if (Number.isNaN(appointmentDate.getTime())) {
+      return res.status(400).json({
+        message: "Data do agendamento inválida",
       });
     }
 
@@ -40,8 +61,8 @@ export async function createAppointment(
       await prisma.appointment.findFirst({
         where: {
           clinicId: req.user!.clinicId,
-          date: new Date(date),
-          time,
+          date: appointmentDate,
+          time: time.trim(),
         },
       });
 
@@ -54,11 +75,11 @@ export async function createAppointment(
     const appointment =
       await prisma.appointment.create({
         data: {
-          patientId,
+          patientId: patientId.trim(),
           clinicId: req.user!.clinicId,
-          date: new Date(date),
-          time,
-          service,
+          date: appointmentDate,
+          time: time.trim(),
+          service: service.trim(),
         },
       });
 
@@ -66,12 +87,8 @@ export async function createAppointment(
       message: "Agendamento criado com sucesso",
       appointment,
     });
-
   } catch (error) {
-    console.error(
-      "ERRO CREATE APPOINTMENT:",
-      error
-    );
+    console.error("ERRO CREATE APPOINTMENT:", error);
 
     return res.status(500).json({
       message: "Erro interno do servidor",
@@ -79,9 +96,6 @@ export async function createAppointment(
   }
 }
 
-// ===============================
-// GET ALL APPOINTMENTS
-// ===============================
 export async function getAppointments(
   req: AuthRequest,
   res: Response
@@ -92,11 +106,9 @@ export async function getAppointments(
         where: {
           clinicId: req.user!.clinicId,
         },
-
         orderBy: {
           date: "asc",
         },
-
         include: {
           patient: {
             select: {
@@ -111,12 +123,8 @@ export async function getAppointments(
     return res.json({
       appointments,
     });
-
   } catch (error) {
-    console.error(
-      "ERRO GET APPOINTMENTS:",
-      error
-    );
+    console.error("ERRO GET APPOINTMENTS:", error);
 
     return res.status(500).json({
       message: "Erro interno do servidor",
@@ -124,9 +132,6 @@ export async function getAppointments(
   }
 }
 
-// ===============================
-// GET APPOINTMENT BY ID
-// ===============================
 export async function getAppointmentById(
   req: AuthRequest,
   res: Response
@@ -140,7 +145,6 @@ export async function getAppointmentById(
           id,
           clinicId: req.user!.clinicId,
         },
-
         include: {
           patient: {
             select: {
@@ -161,7 +165,6 @@ export async function getAppointmentById(
     return res.json({
       appointment,
     });
-
   } catch (error) {
     console.error(
       "ERRO GET APPOINTMENT BY ID:",
@@ -174,9 +177,6 @@ export async function getAppointmentById(
   }
 }
 
-// ===============================
-// UPDATE APPOINTMENT
-// ===============================
 export async function updateAppointment(
   req: AuthRequest,
   res: Response
@@ -190,6 +190,29 @@ export async function updateAppointment(
       time,
       service,
     } = req.body;
+
+    if (
+      typeof patientId !== "string" ||
+      !patientId.trim() ||
+      typeof date !== "string" ||
+      !date.trim() ||
+      typeof time !== "string" ||
+      !time.trim() ||
+      typeof service !== "string" ||
+      !service.trim()
+    ) {
+      return res.status(400).json({
+        message: "Todos os campos são obrigatórios",
+      });
+    }
+
+    const appointmentDate = new Date(date);
+
+    if (Number.isNaN(appointmentDate.getTime())) {
+      return res.status(400).json({
+        message: "Data do agendamento inválida",
+      });
+    }
 
     const appointment =
       await prisma.appointment.findFirst({
@@ -208,7 +231,7 @@ export async function updateAppointment(
     const patient =
       await prisma.patient.findFirst({
         where: {
-          id: patientId,
+          id: patientId.trim(),
           clinicId: req.user!.clinicId,
         },
       });
@@ -223,8 +246,8 @@ export async function updateAppointment(
       await prisma.appointment.findFirst({
         where: {
           clinicId: req.user!.clinicId,
-          date: new Date(date),
-          time,
+          date: appointmentDate,
+          time: time.trim(),
           NOT: {
             id,
           },
@@ -243,10 +266,10 @@ export async function updateAppointment(
           id,
         },
         data: {
-          patientId,
-          date: new Date(date),
-          time,
-          service,
+          patientId: patientId.trim(),
+          date: appointmentDate,
+          time: time.trim(),
+          service: service.trim(),
         },
       });
 
@@ -254,7 +277,6 @@ export async function updateAppointment(
       message: "Agendamento atualizado com sucesso",
       appointment: updatedAppointment,
     });
-
   } catch (error) {
     console.error(
       "ERRO UPDATE APPOINTMENT:",
@@ -267,9 +289,6 @@ export async function updateAppointment(
   }
 }
 
-// ===============================
-// UPDATE APPOINTMENT STATUS
-// ===============================
 export async function updateAppointmentStatus(
   req: AuthRequest,
   res: Response
@@ -278,14 +297,10 @@ export async function updateAppointmentStatus(
     const id = req.params.id as string;
     const { status } = req.body;
 
-    const allowedStatuses = [
-      "scheduled",
-      "confirmed",
-      "completed",
-      "cancelled",
-    ];
-
-    if (!status || !allowedStatuses.includes(status)) {
+    if (
+      typeof status !== "string" ||
+      !allowedStatuses.includes(status)
+    ) {
       return res.status(400).json({
         message: "Status inválido",
       });
@@ -319,7 +334,6 @@ export async function updateAppointmentStatus(
       message: "Status atualizado com sucesso",
       appointment: updatedAppointment,
     });
-
   } catch (error) {
     console.error(
       "ERRO UPDATE APPOINTMENT STATUS:",
@@ -332,9 +346,6 @@ export async function updateAppointmentStatus(
   }
 }
 
-// ===============================
-// DELETE APPOINTMENT
-// ===============================
 export async function deleteAppointment(
   req: AuthRequest,
   res: Response
@@ -365,7 +376,6 @@ export async function deleteAppointment(
     return res.json({
       message: "Agendamento removido com sucesso",
     });
-
   } catch (error) {
     console.error(
       "ERRO DELETE APPOINTMENT:",
