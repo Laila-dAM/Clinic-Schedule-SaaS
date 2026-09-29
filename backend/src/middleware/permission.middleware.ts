@@ -15,9 +15,10 @@ export function requirePermission(permissionName: string) {
     }
 
     try {
-      const user = await prisma.user.findUnique({
+      const user = await prisma.user.findFirst({
         where: {
           id: req.user.id,
+          clinicId: req.user.clinicId,
         },
         include: {
           roleRef: {
@@ -44,12 +45,12 @@ export function requirePermission(permissionName: string) {
         });
       }
 
-      next();
+      return next();
     } catch (error) {
-      console.error("ERROR CHECKING PERMISSION:", error);
+      console.error("ERRO AO VERIFICAR PERMISSÃO:", error);
 
       return res.status(500).json({
-        message: "Internal server error",
+        message: "Erro interno do servidor",
       });
     }
   };
