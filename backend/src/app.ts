@@ -1,10 +1,11 @@
-import express from "express";
+﻿import express from "express";
 import cors from "cors";
 
 import authRoutes from "./modules/auth/auth.routes";
 import patientsRoutes from "./modules/patients/patients.routes";
 import appointmentsRoutes from "./modules/appointments/appointments.routes";
 import usersRoutes from "./modules/users/users.routes";
+import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 
 import { authMiddleware } from "./middleware/auth.middleware";
 import { errorMiddleware } from "./middleware/error.middleware";
@@ -19,6 +20,7 @@ app.use("/auth", authRoutes);
 app.use("/patients", patientsRoutes);
 app.use("/appointments", appointmentsRoutes);
 app.use("/users", usersRoutes);
+app.use("/dashboard", dashboardRoutes);
 
 app.get("/health", (req, res) => {
   return res.json({
@@ -43,3 +45,5 @@ app.use((req, res) => {
 app.use(errorMiddleware);
 
 export default app;
+
+
