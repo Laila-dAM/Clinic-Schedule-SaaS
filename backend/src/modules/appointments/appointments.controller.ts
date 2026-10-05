@@ -16,6 +16,7 @@ export async function createAppointment(
   try {
     const {
       patientId,
+      professionalId,
       date,
       time,
       service,
@@ -24,6 +25,8 @@ export async function createAppointment(
     if (
       typeof patientId !== "string" ||
       !patientId.trim() ||
+      typeof professionalId !== "string" ||
+      !professionalId.trim() ||
       typeof date !== "string" ||
       !date.trim() ||
       typeof time !== "string" ||
@@ -46,7 +49,7 @@ export async function createAppointment(
 
     const patient = await prisma.patient.findFirst({
       where: {
-        id: patientId,
+        id: patientId.trim(),
         clinicId: req.user!.clinicId,
       },
     });
@@ -54,6 +57,19 @@ export async function createAppointment(
     if (!patient) {
       return res.status(404).json({
         message: "Paciente não encontrado",
+      });
+    }
+
+    const professional = await prisma.user.findFirst({
+      where: {
+        id: professionalId.trim(),
+        clinicId: req.user!.clinicId,
+      },
+    });
+
+    if (!professional) {
+      return res.status(404).json({
+        message: "Profissional não encontrado",
       });
     }
 
@@ -76,6 +92,7 @@ export async function createAppointment(
       await prisma.appointment.create({
         data: {
           patientId: patientId.trim(),
+          professionalId: professionalId.trim(),
           clinicId: req.user!.clinicId,
           date: appointmentDate,
           time: time.trim(),
@@ -117,6 +134,14 @@ export async function getAppointments(
               phone: true,
             },
           },
+          professional: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
         },
       });
 
@@ -153,6 +178,14 @@ export async function getAppointmentById(
               phone: true,
             },
           },
+          professional: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
         },
       });
 
@@ -186,6 +219,7 @@ export async function updateAppointment(
 
     const {
       patientId,
+      professionalId,
       date,
       time,
       service,
@@ -194,6 +228,8 @@ export async function updateAppointment(
     if (
       typeof patientId !== "string" ||
       !patientId.trim() ||
+      typeof professionalId !== "string" ||
+      !professionalId.trim() ||
       typeof date !== "string" ||
       !date.trim() ||
       typeof time !== "string" ||
@@ -242,6 +278,20 @@ export async function updateAppointment(
       });
     }
 
+    const professional =
+      await prisma.user.findFirst({
+        where: {
+          id: professionalId.trim(),
+          clinicId: req.user!.clinicId,
+        },
+      });
+
+    if (!professional) {
+      return res.status(404).json({
+        message: "Profissional não encontrado",
+      });
+    }
+
     const appointmentExists =
       await prisma.appointment.findFirst({
         where: {
@@ -267,6 +317,7 @@ export async function updateAppointment(
         },
         data: {
           patientId: patientId.trim(),
+          professionalId: professionalId.trim(),
           date: appointmentDate,
           time: time.trim(),
           service: service.trim(),
