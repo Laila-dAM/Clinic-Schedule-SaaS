@@ -26,8 +26,9 @@ model User {
   createdAt DateTime @default(now())
   roleId    String
 
-  clinic  Clinic @relation(fields: [clinicId], references: [id])
-  roleRef Role?  @relation(fields: [roleId], references: [id])
+  clinic                   Clinic        @relation(fields: [clinicId], references: [id])
+  roleRef                  Role?         @relation(fields: [roleId], references: [id])
+  professionalAppointments Appointment[] @relation("ProfessionalAppointments")
 }
 
 model Patient {
@@ -42,17 +43,19 @@ model Patient {
 }
 
 model Appointment {
-  id        String   @id @default(uuid())
-  date      DateTime
-  time      String
-  service   String
-  status    String   @default("scheduled")
-  clinicId  String
-  patientId String
-  createdAt DateTime @default(now())
+  id             String   @id @default(uuid())
+  date           DateTime
+  time           String
+  service        String
+  status         String   @default("scheduled")
+  clinicId       String
+  patientId      String
+  professionalId String?
+  createdAt      DateTime @default(now())
 
-  clinic  Clinic  @relation(fields: [clinicId], references: [id])
-  patient Patient @relation(fields: [patientId], references: [id])
+  clinic       Clinic  @relation(fields: [clinicId], references: [id])
+  patient      Patient @relation(fields: [patientId], references: [id])
+  professional User?   @relation("ProfessionalAppointments", fields: [professionalId], references: [id])
 
   @@unique([clinicId, date, time])
 }
