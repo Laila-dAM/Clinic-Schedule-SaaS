@@ -80,6 +80,9 @@ export async function createAppointment(
           professionalId: professionalId.trim(),
           date: appointmentDate,
           time: time.trim(),
+          status: {
+            in: ["scheduled", "confirmed"],
+          },
         },
       });
 
@@ -300,6 +303,9 @@ export async function updateAppointment(
           professionalId: professionalId.trim(),
           date: appointmentDate,
           time: time.trim(),
+          status: {
+            in: ["scheduled", "confirmed"],
+          },
           NOT: {
             id,
           },
