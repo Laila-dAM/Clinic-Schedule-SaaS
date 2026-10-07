@@ -77,6 +77,7 @@ export async function createAppointment(
       await prisma.appointment.findFirst({
         where: {
           clinicId: req.user!.clinicId,
+          professionalId: professionalId.trim(),
           date: appointmentDate,
           time: time.trim(),
         },
@@ -84,7 +85,7 @@ export async function createAppointment(
 
     if (appointmentExists) {
       return res.status(400).json({
-        message: "Já existe um agendamento nesse horário",
+        message: "O profissional já possui um agendamento nesse horário",
       });
     }
 
@@ -296,6 +297,7 @@ export async function updateAppointment(
       await prisma.appointment.findFirst({
         where: {
           clinicId: req.user!.clinicId,
+          professionalId: professionalId.trim(),
           date: appointmentDate,
           time: time.trim(),
           NOT: {
@@ -306,7 +308,7 @@ export async function updateAppointment(
 
     if (appointmentExists) {
       return res.status(400).json({
-        message: "Já existe um agendamento nesse horário",
+        message: "O profissional já possui um agendamento nesse horário",
       });
     }
 
