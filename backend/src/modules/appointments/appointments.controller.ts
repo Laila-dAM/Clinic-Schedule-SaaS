@@ -1,3 +1,4 @@
+
 import { Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import prisma from "../../prisma";
@@ -88,7 +89,8 @@ export async function createAppointment(
 
     if (appointmentExists) {
       return res.status(400).json({
-        message: "O profissional já possui um agendamento nesse horário",
+        message:
+          "O profissional já possui um agendamento nesse horário",
       });
     }
 
@@ -314,7 +316,8 @@ export async function updateAppointment(
 
     if (appointmentExists) {
       return res.status(400).json({
-        message: "O profissional já possui um agendamento nesse horário",
+        message:
+          "O profissional já possui um agendamento nesse horário",
       });
     }
 
@@ -376,6 +379,16 @@ export async function updateAppointmentStatus(
     if (!appointment) {
       return res.status(404).json({
         message: "Agendamento não encontrado",
+      });
+    }
+
+    if (
+      appointment.status === "completed" ||
+      appointment.status === "cancelled"
+    ) {
+      return res.status(400).json({
+        message:
+          "Não é possível alterar o status de um agendamento concluído ou cancelado",
       });
     }
 
