@@ -392,6 +392,31 @@ export async function updateAppointmentStatus(
       });
     }
 
+    if (status === "completed") {
+      const appointmentDate =
+        appointment.date.toISOString().slice(0, 10);
+
+      const appointmentDateTime = new Date(
+        `${appointmentDate}T${appointment.time}:00-03:00`
+      );
+
+      if (
+        Number.isNaN(appointmentDateTime.getTime())
+      ) {
+        return res.status(400).json({
+          message:
+            "Não foi possível validar a data e o horário do agendamento",
+        });
+      }
+
+      if (appointmentDateTime.getTime() > Date.now()) {
+        return res.status(400).json({
+          message:
+            "Não é possível concluir um agendamento antes da data e hora previstas",
+        });
+      }
+    }
+
     const updatedAppointment =
       await prisma.appointment.update({
         where: {
