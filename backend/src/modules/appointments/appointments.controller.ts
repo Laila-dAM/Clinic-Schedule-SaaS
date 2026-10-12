@@ -1,4 +1,3 @@
-
 import { Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import prisma from "../../prisma";
@@ -9,6 +8,10 @@ const allowedStatuses = [
   "completed",
   "cancelled",
 ];
+
+function isValidTime(time: string): boolean {
+  return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time);
+}
 
 export async function createAppointment(
   req: AuthRequest,
@@ -37,6 +40,14 @@ export async function createAppointment(
     ) {
       return res.status(400).json({
         message: "Todos os campos são obrigatórios",
+      });
+    }
+
+    const normalizedTime = time.trim();
+
+    if (!isValidTime(normalizedTime)) {
+      return res.status(400).json({
+        message: "Horário inválido. Use o formato HH:mm",
       });
     }
 
@@ -80,7 +91,7 @@ export async function createAppointment(
           clinicId: req.user!.clinicId,
           professionalId: professionalId.trim(),
           date: appointmentDate,
-          time: time.trim(),
+          time: normalizedTime,
           status: {
             in: ["scheduled", "confirmed"],
           },
@@ -101,7 +112,7 @@ export async function createAppointment(
           professionalId: professionalId.trim(),
           clinicId: req.user!.clinicId,
           date: appointmentDate,
-          time: time.trim(),
+          time: normalizedTime,
           service: service.trim(),
         },
       });
@@ -248,6 +259,14 @@ export async function updateAppointment(
       });
     }
 
+    const normalizedTime = time.trim();
+
+    if (!isValidTime(normalizedTime)) {
+      return res.status(400).json({
+        message: "Horário inválido. Use o formato HH:mm",
+      });
+    }
+
     const appointmentDate = new Date(date);
 
     if (Number.isNaN(appointmentDate.getTime())) {
@@ -304,7 +323,7 @@ export async function updateAppointment(
           clinicId: req.user!.clinicId,
           professionalId: professionalId.trim(),
           date: appointmentDate,
-          time: time.trim(),
+          time: normalizedTime,
           status: {
             in: ["scheduled", "confirmed"],
           },
@@ -330,7 +349,7 @@ export async function updateAppointment(
           patientId: patientId.trim(),
           professionalId: professionalId.trim(),
           date: appointmentDate,
-          time: time.trim(),
+          time: normalizedTime,
           service: service.trim(),
         },
       });
@@ -393,6 +412,13 @@ export async function updateAppointmentStatus(
     }
 
     if (status === "completed") {
+      if (!isValidTime(appointment.time)) {
+        return res.status(400).json({
+          message:
+            "Não foi possível validar a data e o horário do agendamento",
+        });
+      }
+
       const appointmentDate =
         appointment.date.toISOString().slice(0, 10);
 
@@ -474,10 +500,7 @@ export async function deleteAppointment(
       message: "Agendamento removido com sucesso",
     });
   } catch (error) {
-    console.error(
-      "ERRO DELETE APPOINTMENT:",
-      error
-    );
+    console.error("ERRO DELETE APPOINTMENT:", error);
 
     return res.status(500).json({
       message: "Erro interno do servidor",
