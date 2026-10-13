@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon src/server.ts"
+    "dev": "nodemon src/server.ts",
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -26,9 +27,12 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.1.0",
+    "@types/supertest": "^7.2.1",
     "nodemon": "^3.1.14",
+    "supertest": "^7.3.1",
     "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.4"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
