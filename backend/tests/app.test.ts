@@ -429,6 +429,26 @@ describe("API", () => {
       );
       expect(prismaMock.appointment.update).toHaveBeenCalledOnce();
     });
+
+    it("deve impedir a atualização de um agendamento de outra clínica", async () => {
+      mockAuthorizedUser();
+      prismaMock.appointment.findFirst.mockResolvedValue(null);
+
+      const response = await authenticatedPut().send(validAppointment);
+
+      expect(response.status).toBe(404);
+      expect(response.body.message).toBe("Agendamento não encontrado");
+      expect(prismaMock.appointment.update).not.toHaveBeenCalled();
+
+      expect(prismaMock.appointment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: appointmentId,
+            clinicId: testUser.clinicId,
+          },
+        }),
+      );
+    });
   });
 
   describe("Atualização de status", () => {
