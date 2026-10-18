@@ -19,7 +19,9 @@ const { prismaMock } = vi.hoisted(() => ({
       create: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       delete: vi.fn(),
+      deleteMany: vi.fn(),
     },
   },
 }));
@@ -348,7 +350,7 @@ describe("API", () => {
 
       expect(response.status).toBe(404);
       expect(response.body.message).toBe("Agendamento não encontrado");
-      expect(prismaMock.appointment.update).not.toHaveBeenCalled();
+      expect(prismaMock.appointment.updateMany).not.toHaveBeenCalled();
     });
 
     it("deve rejeitar a atualização quando o paciente não existir", async () => {
@@ -362,7 +364,7 @@ describe("API", () => {
 
       expect(response.status).toBe(404);
       expect(response.body.message).toBe("Paciente não encontrado");
-      expect(prismaMock.appointment.update).not.toHaveBeenCalled();
+      expect(prismaMock.appointment.updateMany).not.toHaveBeenCalled();
     });
 
     it("deve rejeitar a atualização quando o profissional não existir", async () => {
@@ -377,7 +379,7 @@ describe("API", () => {
 
       expect(response.status).toBe(404);
       expect(response.body.message).toBe("Profissional não encontrado");
-      expect(prismaMock.appointment.update).not.toHaveBeenCalled();
+      expect(prismaMock.appointment.updateMany).not.toHaveBeenCalled();
     });
 
     it("deve rejeitar a atualização quando houver conflito de horário", async () => {
@@ -401,7 +403,7 @@ describe("API", () => {
       expect(response.body.message).toBe(
         "O profissional já possui um agendamento nesse horário",
       );
-      expect(prismaMock.appointment.update).not.toHaveBeenCalled();
+      expect(prismaMock.appointment.updateMany).not.toHaveBeenCalled();
     });
 
     it("deve atualizar o agendamento quando não houver conflito", async () => {
@@ -413,10 +415,7 @@ describe("API", () => {
       mockExistingPatient();
       mockExistingProfessional();
 
-      prismaMock.appointment.update.mockResolvedValue({
-        ...existingAppointment,
-        service: "Retorno",
-      } as never);
+      prismaMock.appointment.updateMany.mockResolvedValue({ count: 1 } as never);
 
       const response = await authenticatedPut().send({
         ...validAppointment,
@@ -427,7 +426,15 @@ describe("API", () => {
       expect(response.body.message).toBe(
         "Agendamento atualizado com sucesso",
       );
-      expect(prismaMock.appointment.update).toHaveBeenCalledOnce();
+      expect(prismaMock.appointment.updateMany).toHaveBeenCalledOnce();
+      expect(prismaMock.appointment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: appointmentId,
+            clinicId: testUser.clinicId,
+          },
+        }),
+      );
     });
 
     it("deve impedir a atualização de um agendamento de outra clínica", async () => {
@@ -438,7 +445,7 @@ describe("API", () => {
 
       expect(response.status).toBe(404);
       expect(response.body.message).toBe("Agendamento não encontrado");
-      expect(prismaMock.appointment.update).not.toHaveBeenCalled();
+      expect(prismaMock.appointment.updateMany).not.toHaveBeenCalled();
 
       expect(prismaMock.appointment.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -476,7 +483,7 @@ describe("API", () => {
       });
 
       expect(response.status).toBe(400);
-      expect(prismaMock.appointment.update).not.toHaveBeenCalled();
+      expect(prismaMock.appointment.updateMany).not.toHaveBeenCalled();
     });
 
     it("deve impedir a conclusão antes da data e hora previstas", async () => {
@@ -496,7 +503,7 @@ describe("API", () => {
       expect(response.body.message).toBe(
         "Não é possível concluir um agendamento antes da data e hora previstas",
       );
-      expect(prismaMock.appointment.update).not.toHaveBeenCalled();
+      expect(prismaMock.appointment.updateMany).not.toHaveBeenCalled();
     });
 
     it("deve impedir a alteração de status de um agendamento de outra clínica", async () => {
@@ -509,7 +516,7 @@ describe("API", () => {
 
       expect(response.status).toBe(404);
       expect(response.body.message).toBe("Agendamento não encontrado");
-      expect(prismaMock.appointment.update).not.toHaveBeenCalled();
+      expect(prismaMock.appointment.updateMany).not.toHaveBeenCalled();
 
       expect(prismaMock.appointment.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -526,10 +533,7 @@ describe("API", () => {
       prismaMock.appointment.findFirst.mockResolvedValue(
         existingAppointment as never,
       );
-      prismaMock.appointment.update.mockResolvedValue({
-        ...existingAppointment,
-        status: "confirmed",
-      } as never);
+      prismaMock.appointment.updateMany.mockResolvedValue({ count: 1 } as never);
 
       const response = await authenticatedStatus().send({
         status: "confirmed",
@@ -538,7 +542,15 @@ describe("API", () => {
       expect(response.status).toBe(200);
       expect(response.body.message).toBe("Status atualizado com sucesso");
       expect(response.body.appointment.status).toBe("confirmed");
-      expect(prismaMock.appointment.update).toHaveBeenCalledOnce();
+      expect(prismaMock.appointment.updateMany).toHaveBeenCalledOnce();
+      expect(prismaMock.appointment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: appointmentId,
+            clinicId: testUser.clinicId,
+          },
+        }),
+      );
     });
   });
 
@@ -551,7 +563,7 @@ describe("API", () => {
 
       expect(response.status).toBe(404);
       expect(response.body.message).toBe("Agendamento não encontrado");
-      expect(prismaMock.appointment.delete).not.toHaveBeenCalled();
+      expect(prismaMock.appointment.deleteMany).not.toHaveBeenCalled();
     });
 
     it("deve impedir a exclusão de um agendamento de outra clínica", async () => {
@@ -562,7 +574,7 @@ describe("API", () => {
 
       expect(response.status).toBe(404);
       expect(response.body.message).toBe("Agendamento não encontrado");
-      expect(prismaMock.appointment.delete).not.toHaveBeenCalled();
+      expect(prismaMock.appointment.deleteMany).not.toHaveBeenCalled();
 
       expect(prismaMock.appointment.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -579,15 +591,21 @@ describe("API", () => {
       prismaMock.appointment.findFirst.mockResolvedValue(
         existingAppointment as never,
       );
-      prismaMock.appointment.delete.mockResolvedValue(
-        existingAppointment as never,
-      );
+      prismaMock.appointment.deleteMany.mockResolvedValue({ count: 1 } as never);
 
       const response = await authenticatedDelete();
 
       expect(response.status).toBe(200);
       expect(response.body.message).toBe("Agendamento removido com sucesso");
-      expect(prismaMock.appointment.delete).toHaveBeenCalledOnce();
+      expect(prismaMock.appointment.deleteMany).toHaveBeenCalledOnce();
+      expect(prismaMock.appointment.deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: appointmentId,
+            clinicId: testUser.clinicId,
+          },
+        }),
+      );
     });
   });
 });

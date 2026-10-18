@@ -340,19 +340,34 @@ export async function updateAppointment(
       });
     }
 
-    const updatedAppointment =
-      await prisma.appointment.update({
-        where: {
-          id,
-        },
-        data: {
-          patientId: patientId.trim(),
-          professionalId: professionalId.trim(),
-          date: appointmentDate,
-          time: normalizedTime,
-          service: service.trim(),
-        },
+    const updateResult = await prisma.appointment.updateMany({
+      where: {
+        id,
+        clinicId: req.user!.clinicId,
+      },
+      data: {
+        patientId: patientId.trim(),
+        professionalId: professionalId.trim(),
+        date: appointmentDate,
+        time: normalizedTime,
+        service: service.trim(),
+      },
+    });
+
+    if (updateResult.count !== 1) {
+      return res.status(404).json({
+        message: "Agendamento não encontrado",
       });
+    }
+
+    const updatedAppointment = {
+      ...appointment,
+      patientId: patientId.trim(),
+      professionalId: professionalId.trim(),
+      date: appointmentDate,
+      time: normalizedTime,
+      service: service.trim(),
+    };
 
     return res.json({
       message: "Agendamento atualizado com sucesso",
@@ -443,15 +458,26 @@ export async function updateAppointmentStatus(
       }
     }
 
-    const updatedAppointment =
-      await prisma.appointment.update({
-        where: {
-          id,
-        },
-        data: {
-          status,
-        },
+    const updateResult = await prisma.appointment.updateMany({
+      where: {
+        id,
+        clinicId: req.user!.clinicId,
+      },
+      data: {
+        status,
+      },
+    });
+
+    if (updateResult.count !== 1) {
+      return res.status(404).json({
+        message: "Agendamento não encontrado",
       });
+    }
+
+    const updatedAppointment = {
+      ...appointment,
+      status,
+    };
 
     return res.json({
       message: "Status atualizado com sucesso",
@@ -490,11 +516,18 @@ export async function deleteAppointment(
       });
     }
 
-    await prisma.appointment.delete({
+    const deleteResult = await prisma.appointment.deleteMany({
       where: {
         id,
+        clinicId: req.user!.clinicId,
       },
     });
+
+    if (deleteResult.count !== 1) {
+      return res.status(404).json({
+        message: "Agendamento não encontrado",
+      });
+    }
 
     return res.json({
       message: "Agendamento removido com sucesso",
