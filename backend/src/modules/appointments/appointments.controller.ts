@@ -1,3 +1,4 @@
+
 import { Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import prisma from "../../prisma";
@@ -11,6 +12,23 @@ const allowedStatuses = [
 
 function isValidTime(time: string): boolean {
   return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time);
+}
+
+function parseAppointmentDate(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const parsedDate = new Date(`${value}T00:00:00.000Z`);
+
+  if (
+    Number.isNaN(parsedDate.getTime()) ||
+    parsedDate.toISOString().slice(0, 10) !== value
+  ) {
+    return null;
+  }
+
+  return parsedDate;
 }
 
 export async function createAppointment(
@@ -51,11 +69,12 @@ export async function createAppointment(
       });
     }
 
-    const appointmentDate = new Date(date);
+    const appointmentDate = parseAppointmentDate(date.trim());
 
-    if (Number.isNaN(appointmentDate.getTime())) {
+    if (!appointmentDate) {
       return res.status(400).json({
-        message: "Data do agendamento inválida",
+        message:
+          "Data do agendamento inválida",
       });
     }
 
@@ -267,11 +286,12 @@ export async function updateAppointment(
       });
     }
 
-    const appointmentDate = new Date(date);
+    const appointmentDate = parseAppointmentDate(date.trim());
 
-    if (Number.isNaN(appointmentDate.getTime())) {
+    if (!appointmentDate) {
       return res.status(400).json({
-        message: "Data do agendamento inválida",
+        message:
+          "Data do agendamento inválida",
       });
     }
 

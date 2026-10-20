@@ -1,4 +1,5 @@
-﻿import { beforeEach, describe, expect, it, vi } from "vitest";
+﻿
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 
@@ -272,6 +273,26 @@ describe("API", () => {
       expect(prismaMock.patient.findFirst).not.toHaveBeenCalled();
     });
 
+    it.each([
+      ["formato brasileiro", "19/10/2026"],
+      ["formato sem separadores", "20261019"],
+      ["dia inexistente", "2026-02-30"],
+      ["mês inexistente", "2026-13-10"],
+      ["dia zero", "2026-10-00"],
+    ])("deve rejeitar uma data inválida na criação: %s", async (_description, date) => {
+      const response = await authenticatedRequest().send({
+        ...validAppointment,
+        date,
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBe(
+        "Data do agendamento inválida",
+      );
+      expect(prismaMock.patient.findFirst).not.toHaveBeenCalled();
+      expect(prismaMock.appointment.create).not.toHaveBeenCalled();
+    });
+
     it("deve retornar 404 quando o paciente não existir", async () => {
       mockAuthorizedUser();
       prismaMock.patient.findFirst.mockResolvedValue(null);
@@ -380,6 +401,28 @@ describe("API", () => {
       expect(response.status).toBe(404);
       expect(response.body.message).toBe("Profissional não encontrado");
       expect(prismaMock.appointment.updateMany).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["formato brasileiro", "19/10/2026"],
+      ["formato sem separadores", "20261019"],
+      ["dia inexistente", "2026-02-30"],
+      ["mês inexistente", "2026-13-10"],
+      ["dia zero", "2026-10-00"],
+    ])("deve rejeitar uma data inválida na atualização: %s", async (_description, date) => {
+      mockAuthorizedUser();
+
+      const response = await authenticatedPut().send({
+        ...validAppointment,
+        date,
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBe(
+        "Data do agendamento inválida",
+      );
+      expect(prismaMock.appointment.updateMany).not.toHaveBeenCalled();
+      expect(prismaMock.patient.findFirst).not.toHaveBeenCalled();
     });
 
     it("deve rejeitar a atualização quando houver conflito de horário", async () => {
