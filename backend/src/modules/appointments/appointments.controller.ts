@@ -10,6 +10,10 @@ const allowedStatuses = [
   "cancelled",
 ];
 
+const activeStatuses = ["scheduled", "confirmed"];
+const DEFAULT_DURATION_MINUTES = 30;
+const MAX_DURATION_MINUTES = 480;
+
 function isValidTime(time: string): boolean {
   return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time);
 }
@@ -31,6 +35,88 @@ function parseAppointmentDate(value: string): Date | null {
   return parsedDate;
 }
 
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function isValidDuration(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value > 0 &&
+    value <= MAX_DURATION_MINUTES
+  );
+}
+
+function exceedsDay(time: string, durationMinutes: number): boolean {
+  return timeToMinutes(time) + durationMinutes > 24 * 60;
+}
+
+function intervalsOverlap(
+  firstStart: number,
+  firstDuration: number,
+  secondStart: number,
+  secondDuration: number
+): boolean {
+  const firstEnd = firstStart + firstDuration;
+  const secondEnd = secondStart + secondDuration;
+
+  return firstStart < secondEnd && secondStart < firstEnd;
+}
+
+async function hasOverlappingAppointment(params: {
+  clinicId: string;
+  professionalId: string;
+  date: Date;
+  time: string;
+  durationMinutes: number;
+  excludeAppointmentId?: string;
+}): Promise<boolean> {
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      clinicId: params.clinicId,
+      professionalId: params.professionalId,
+      date: params.date,
+      status: {
+        in: activeStatuses,
+      },
+      ...(params.excludeAppointmentId
+        ? {
+            NOT: {
+              id: params.excludeAppointmentId,
+            },
+          }
+        : {}),
+    },
+    select: {
+      id: true,
+      time: true,
+      durationMinutes: true,
+    },
+  });
+
+  const candidateStart = timeToMinutes(params.time);
+
+  return appointments.some((appointment) => {
+    if (!isValidTime(appointment.time)) {
+      return false;
+    }
+
+    const existingDuration = appointment.durationMinutes;
+    if (!isValidDuration(existingDuration)) {
+      return false;
+    }
+
+    return intervalsOverlap(
+      candidateStart,
+      params.durationMinutes,
+      timeToMinutes(appointment.time),
+      existingDuration
+    );
+  });
+}
+
 export async function createAppointment(
   req: AuthRequest,
   res: Response
@@ -42,6 +128,7 @@ export async function createAppointment(
       date,
       time,
       service,
+      durationMinutes,
     } = req.body;
 
     if (
@@ -57,31 +144,49 @@ export async function createAppointment(
       !service.trim()
     ) {
       return res.status(400).json({
-        message: "Todos os campos são obrigatórios",
+        message: "Todos os campos obrigatórios devem ser informados",
       });
     }
 
     const normalizedTime = time.trim();
-
     if (!isValidTime(normalizedTime)) {
       return res.status(400).json({
         message: "Horário inválido. Use o formato HH:mm",
       });
     }
 
-    const appointmentDate = parseAppointmentDate(date.trim());
+    const normalizedDuration =
+      durationMinutes === undefined
+        ? DEFAULT_DURATION_MINUTES
+        : durationMinutes;
 
-    if (!appointmentDate) {
+    if (!isValidDuration(normalizedDuration)) {
       return res.status(400).json({
-        message:
-          "Data do agendamento inválida",
+        message: `A duração deve ser um número inteiro entre 1 e ${MAX_DURATION_MINUTES} minutos`,
       });
     }
 
+    if (exceedsDay(normalizedTime, normalizedDuration)) {
+      return res.status(400).json({
+        message: "O agendamento não pode ultrapassar a meia-noite",
+      });
+    }
+
+    const appointmentDate = parseAppointmentDate(date.trim());
+    if (!appointmentDate) {
+      return res.status(400).json({
+        message: "Data do agendamento inválida",
+      });
+    }
+
+    const clinicId = req.user!.clinicId;
+    const normalizedPatientId = patientId.trim();
+    const normalizedProfessionalId = professionalId.trim();
+
     const patient = await prisma.patient.findFirst({
       where: {
-        id: patientId.trim(),
-        clinicId: req.user!.clinicId,
+        id: normalizedPatientId,
+        clinicId,
       },
     });
 
@@ -93,8 +198,8 @@ export async function createAppointment(
 
     const professional = await prisma.user.findFirst({
       where: {
-        id: professionalId.trim(),
-        clinicId: req.user!.clinicId,
+        id: normalizedProfessionalId,
+        clinicId,
       },
     });
 
@@ -104,37 +209,32 @@ export async function createAppointment(
       });
     }
 
-    const appointmentExists =
-      await prisma.appointment.findFirst({
-        where: {
-          clinicId: req.user!.clinicId,
-          professionalId: professionalId.trim(),
-          date: appointmentDate,
-          time: normalizedTime,
-          status: {
-            in: ["scheduled", "confirmed"],
-          },
-        },
-      });
+    const overlaps = await hasOverlappingAppointment({
+      clinicId,
+      professionalId: normalizedProfessionalId,
+      date: appointmentDate,
+      time: normalizedTime,
+      durationMinutes: normalizedDuration,
+    });
 
-    if (appointmentExists) {
+    if (overlaps) {
       return res.status(400).json({
         message:
-          "O profissional já possui um agendamento nesse horário",
+          "O profissional já possui um agendamento que se sobrepõe a esse horário",
       });
     }
 
-    const appointment =
-      await prisma.appointment.create({
-        data: {
-          patientId: patientId.trim(),
-          professionalId: professionalId.trim(),
-          clinicId: req.user!.clinicId,
-          date: appointmentDate,
-          time: normalizedTime,
-          service: service.trim(),
-        },
-      });
+    const appointment = await prisma.appointment.create({
+      data: {
+        patientId: normalizedPatientId,
+        professionalId: normalizedProfessionalId,
+        clinicId,
+        date: appointmentDate,
+        time: normalizedTime,
+        service: service.trim(),
+        durationMinutes: normalizedDuration,
+      },
+    });
 
     return res.status(201).json({
       message: "Agendamento criado com sucesso",
@@ -154,36 +254,33 @@ export async function getAppointments(
   res: Response
 ) {
   try {
-    const appointments =
-      await prisma.appointment.findMany({
-        where: {
-          clinicId: req.user!.clinicId,
-        },
-        orderBy: {
-          date: "asc",
-        },
-        include: {
-          patient: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-            },
-          },
-          professional: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true,
-            },
+    const appointments = await prisma.appointment.findMany({
+      where: {
+        clinicId: req.user!.clinicId,
+      },
+      orderBy: {
+        date: "asc",
+      },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
           },
         },
-      });
-
-    return res.json({
-      appointments,
+        professional: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
     });
+
+    return res.json({ appointments });
   } catch (error) {
     console.error("ERRO GET APPOINTMENTS:", error);
 
@@ -200,30 +297,29 @@ export async function getAppointmentById(
   try {
     const id = req.params.id as string;
 
-    const appointment =
-      await prisma.appointment.findFirst({
-        where: {
-          id,
-          clinicId: req.user!.clinicId,
-        },
-        include: {
-          patient: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-            },
-          },
-          professional: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true,
-            },
+    const appointment = await prisma.appointment.findFirst({
+      where: {
+        id,
+        clinicId: req.user!.clinicId,
+      },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
           },
         },
-      });
+        professional: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
 
     if (!appointment) {
       return res.status(404).json({
@@ -231,14 +327,9 @@ export async function getAppointmentById(
       });
     }
 
-    return res.json({
-      appointment,
-    });
+    return res.json({ appointment });
   } catch (error) {
-    console.error(
-      "ERRO GET APPOINTMENT BY ID:",
-      error
-    );
+    console.error("ERRO GET APPOINTMENT BY ID:", error);
 
     return res.status(500).json({
       message: "Erro interno do servidor",
@@ -259,6 +350,7 @@ export async function updateAppointment(
       date,
       time,
       service,
+      durationMinutes,
     } = req.body;
 
     if (
@@ -274,34 +366,25 @@ export async function updateAppointment(
       !service.trim()
     ) {
       return res.status(400).json({
-        message: "Todos os campos são obrigatórios",
+        message: "Todos os campos obrigatórios devem ser informados",
       });
     }
 
     const normalizedTime = time.trim();
-
     if (!isValidTime(normalizedTime)) {
       return res.status(400).json({
         message: "Horário inválido. Use o formato HH:mm",
       });
     }
 
-    const appointmentDate = parseAppointmentDate(date.trim());
+    const clinicId = req.user!.clinicId;
 
-    if (!appointmentDate) {
-      return res.status(400).json({
-        message:
-          "Data do agendamento inválida",
-      });
-    }
-
-    const appointment =
-      await prisma.appointment.findFirst({
-        where: {
-          id,
-          clinicId: req.user!.clinicId,
-        },
-      });
+    const appointment = await prisma.appointment.findFirst({
+      where: {
+        id,
+        clinicId,
+      },
+    });
 
     if (!appointment) {
       return res.status(404).json({
@@ -309,13 +392,39 @@ export async function updateAppointment(
       });
     }
 
-    const patient =
-      await prisma.patient.findFirst({
-        where: {
-          id: patientId.trim(),
-          clinicId: req.user!.clinicId,
-        },
+    const normalizedDuration =
+      durationMinutes === undefined
+        ? appointment.durationMinutes
+        : durationMinutes;
+
+    if (!isValidDuration(normalizedDuration)) {
+      return res.status(400).json({
+        message: `A duração deve ser um número inteiro entre 1 e ${MAX_DURATION_MINUTES} minutos`,
       });
+    }
+
+    if (exceedsDay(normalizedTime, normalizedDuration)) {
+      return res.status(400).json({
+        message: "O agendamento não pode ultrapassar a meia-noite",
+      });
+    }
+
+    const appointmentDate = parseAppointmentDate(date.trim());
+    if (!appointmentDate) {
+      return res.status(400).json({
+        message: "Data do agendamento inválida",
+      });
+    }
+
+    const normalizedPatientId = patientId.trim();
+    const normalizedProfessionalId = professionalId.trim();
+
+    const patient = await prisma.patient.findFirst({
+      where: {
+        id: normalizedPatientId,
+        clinicId,
+      },
+    });
 
     if (!patient) {
       return res.status(404).json({
@@ -323,13 +432,12 @@ export async function updateAppointment(
       });
     }
 
-    const professional =
-      await prisma.user.findFirst({
-        where: {
-          id: professionalId.trim(),
-          clinicId: req.user!.clinicId,
-        },
-      });
+    const professional = await prisma.user.findFirst({
+      where: {
+        id: normalizedProfessionalId,
+        clinicId,
+      },
+    });
 
     if (!professional) {
       return res.status(404).json({
@@ -337,40 +445,34 @@ export async function updateAppointment(
       });
     }
 
-    const appointmentExists =
-      await prisma.appointment.findFirst({
-        where: {
-          clinicId: req.user!.clinicId,
-          professionalId: professionalId.trim(),
-          date: appointmentDate,
-          time: normalizedTime,
-          status: {
-            in: ["scheduled", "confirmed"],
-          },
-          NOT: {
-            id,
-          },
-        },
-      });
+    const overlaps = await hasOverlappingAppointment({
+      clinicId,
+      professionalId: normalizedProfessionalId,
+      date: appointmentDate,
+      time: normalizedTime,
+      durationMinutes: normalizedDuration,
+      excludeAppointmentId: id,
+    });
 
-    if (appointmentExists) {
+    if (overlaps) {
       return res.status(400).json({
         message:
-          "O profissional já possui um agendamento nesse horário",
+          "O profissional já possui um agendamento que se sobrepõe a esse horário",
       });
     }
 
     const updateResult = await prisma.appointment.updateMany({
       where: {
         id,
-        clinicId: req.user!.clinicId,
+        clinicId,
       },
       data: {
-        patientId: patientId.trim(),
-        professionalId: professionalId.trim(),
+        patientId: normalizedPatientId,
+        professionalId: normalizedProfessionalId,
         date: appointmentDate,
         time: normalizedTime,
         service: service.trim(),
+        durationMinutes: normalizedDuration,
       },
     });
 
@@ -382,11 +484,12 @@ export async function updateAppointment(
 
     const updatedAppointment = {
       ...appointment,
-      patientId: patientId.trim(),
-      professionalId: professionalId.trim(),
+      patientId: normalizedPatientId,
+      professionalId: normalizedProfessionalId,
       date: appointmentDate,
       time: normalizedTime,
       service: service.trim(),
+      durationMinutes: normalizedDuration,
     };
 
     return res.json({
@@ -394,10 +497,7 @@ export async function updateAppointment(
       appointment: updatedAppointment,
     });
   } catch (error) {
-    console.error(
-      "ERRO UPDATE APPOINTMENT:",
-      error
-    );
+    console.error("ERRO UPDATE APPOINTMENT:", error);
 
     return res.status(500).json({
       message: "Erro interno do servidor",
@@ -422,13 +522,12 @@ export async function updateAppointmentStatus(
       });
     }
 
-    const appointment =
-      await prisma.appointment.findFirst({
-        where: {
-          id,
-          clinicId: req.user!.clinicId,
-        },
-      });
+    const appointment = await prisma.appointment.findFirst({
+      where: {
+        id,
+        clinicId: req.user!.clinicId,
+      },
+    });
 
     if (!appointment) {
       return res.status(404).json({
@@ -461,9 +560,7 @@ export async function updateAppointmentStatus(
         `${appointmentDate}T${appointment.time}:00-03:00`
       );
 
-      if (
-        Number.isNaN(appointmentDateTime.getTime())
-      ) {
+      if (Number.isNaN(appointmentDateTime.getTime())) {
         return res.status(400).json({
           message:
             "Não foi possível validar a data e o horário do agendamento",
@@ -504,10 +601,7 @@ export async function updateAppointmentStatus(
       appointment: updatedAppointment,
     });
   } catch (error) {
-    console.error(
-      "ERRO UPDATE APPOINTMENT STATUS:",
-      error
-    );
+    console.error("ERRO UPDATE APPOINTMENT STATUS:", error);
 
     return res.status(500).json({
       message: "Erro interno do servidor",
@@ -522,13 +616,12 @@ export async function deleteAppointment(
   try {
     const id = req.params.id as string;
 
-    const appointment =
-      await prisma.appointment.findFirst({
-        where: {
-          id,
-          clinicId: req.user!.clinicId,
-        },
-      });
+    const appointment = await prisma.appointment.findFirst({
+      where: {
+        id,
+        clinicId: req.user!.clinicId,
+      },
+    });
 
     if (!appointment) {
       return res.status(404).json({

@@ -1,5 +1,4 @@
-﻿
-import { beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 
@@ -56,6 +55,7 @@ const existingAppointment = {
   date: new Date("2026-12-10T00:00:00.000Z"),
   clinicId: testUser.clinicId,
   status: "scheduled",
+  durationMinutes: 30,
 };
 
 const testPermissions = [
@@ -134,6 +134,9 @@ describe("API", () => {
         permissions: testPermissions,
       },
     } as never);
+
+    // A verificação de conflitos precisa receber uma lista, mesmo quando vazia.
+    prismaMock.appointment.findMany.mockResolvedValue([] as never);
   });
 
   describe("Rotas gerais", () => {
@@ -166,9 +169,7 @@ describe("API", () => {
 
   describe("Autenticação de agendamentos", () => {
     it("deve retornar 401 ao criar agendamento sem token", async () => {
-      const response = await request(app)
-        .post("/appointments")
-        .send({});
+      const response = await request(app).post("/appointments").send({});
 
       expect(response.status).toBe(401);
       expect(response.body.message).toBe("Token não enviado");
@@ -213,9 +214,9 @@ describe("API", () => {
 
     it("deve impedir a consulta de um agendamento de outra clínica", async () => {
       mockAuthorizedUser();
-      prismaMock.appointment.findFirst.mockResolvedValue(null);
 
       const otherClinicAppointmentId = "appointment-other-clinic";
+      prismaMock.appointment.findFirst.mockResolvedValue(null);
 
       const response = await authenticatedGetAppointment(
         otherClinicAppointmentId,
@@ -241,9 +242,29 @@ describe("API", () => {
 
       expect(response.status).toBe(400);
       expect(response.body.message).toBe(
-        "Todos os campos são obrigatórios",
+        "Todos os campos obrigatórios devem ser informados",
       );
       expect(prismaMock.patient.findFirst).not.toHaveBeenCalled();
+      expect(prismaMock.appointment.create).not.toHaveBeenCalled();
+    });
+
+    it("deve rejeitar uma duração inválida", async () => {
+      const response = await authenticatedRequest().send({
+        ...validAppointment,
+        durationMinutes: 0,
+      });
+
+      expect(response.status).toBe(400);
+      expect(prismaMock.appointment.create).not.toHaveBeenCalled();
+    });
+
+    it("deve rejeitar uma duração superior a oito horas", async () => {
+      const response = await authenticatedRequest().send({
+        ...validAppointment,
+        durationMinutes: 481,
+      });
+
+      expect(response.status).toBe(400);
       expect(prismaMock.appointment.create).not.toHaveBeenCalled();
     });
 
@@ -279,19 +300,22 @@ describe("API", () => {
       ["dia inexistente", "2026-02-30"],
       ["mês inexistente", "2026-13-10"],
       ["dia zero", "2026-10-00"],
-    ])("deve rejeitar uma data inválida na criação: %s", async (_description, date) => {
-      const response = await authenticatedRequest().send({
-        ...validAppointment,
-        date,
-      });
+    ])(
+      "deve rejeitar uma data inválida na criação: %s",
+      async (_description, date) => {
+        const response = await authenticatedRequest().send({
+          ...validAppointment,
+          date,
+        });
 
-      expect(response.status).toBe(400);
-      expect(response.body.message).toBe(
-        "Data do agendamento inválida",
-      );
-      expect(prismaMock.patient.findFirst).not.toHaveBeenCalled();
-      expect(prismaMock.appointment.create).not.toHaveBeenCalled();
-    });
+        expect(response.status).toBe(400);
+        expect(response.body.message).toBe(
+          "Data do agendamento inválida",
+        );
+        expect(prismaMock.patient.findFirst).not.toHaveBeenCalled();
+        expect(prismaMock.appointment.create).not.toHaveBeenCalled();
+      },
+    );
 
     it("deve retornar 404 quando o paciente não existir", async () => {
       mockAuthorizedUser();
@@ -321,16 +345,19 @@ describe("API", () => {
       mockExistingPatient();
       mockExistingProfessional();
 
-      prismaMock.appointment.findFirst.mockResolvedValue({
-        id: "existing-appointment-id",
-        status: "confirmed",
-      } as never);
+      prismaMock.appointment.findMany.mockResolvedValue([
+        {
+          id: "existing-appointment-id",
+          time: "10:30",
+          durationMinutes: 30,
+        },
+      ] as never);
 
       const response = await authenticatedRequest().send(validAppointment);
 
       expect(response.status).toBe(400);
       expect(response.body.message).toBe(
-        "O profissional já possui um agendamento nesse horário",
+        "O profissional já possui um agendamento que se sobrepõe a esse horário",
       );
       expect(prismaMock.appointment.create).not.toHaveBeenCalled();
     });
@@ -346,9 +373,10 @@ describe("API", () => {
         date: new Date(`${validAppointment.date}T00:00:00.000Z`),
         clinicId: testUser.clinicId,
         status: "scheduled",
+        durationMinutes: 30,
       };
 
-      prismaMock.appointment.findFirst.mockResolvedValue(null);
+      prismaMock.appointment.findMany.mockResolvedValue([] as never);
       prismaMock.appointment.create.mockResolvedValue(
         appointmentCreated as never,
       );
@@ -358,7 +386,15 @@ describe("API", () => {
       expect(response.status).toBe(201);
       expect(response.body.message).toBe("Agendamento criado com sucesso");
       expect(response.body.appointment.id).toBe("new-appointment-id");
+      expect(response.body.appointment.durationMinutes).toBe(30);
       expect(prismaMock.appointment.create).toHaveBeenCalledOnce();
+      expect(prismaMock.appointment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            durationMinutes: 30,
+          }),
+        }),
+      );
     });
   });
 
@@ -409,33 +445,43 @@ describe("API", () => {
       ["dia inexistente", "2026-02-30"],
       ["mês inexistente", "2026-13-10"],
       ["dia zero", "2026-10-00"],
-    ])("deve rejeitar uma data inválida na atualização: %s", async (_description, date) => {
-      mockAuthorizedUser();
+    ])(
+      "deve rejeitar uma data inválida na atualização: %s",
+      async (_description, date) => {
+        mockAuthorizedUser();
+        prismaMock.appointment.findFirst.mockResolvedValue(
+          existingAppointment as never,
+        );
 
-      const response = await authenticatedPut().send({
-        ...validAppointment,
-        date,
-      });
+        const response = await authenticatedPut().send({
+          ...validAppointment,
+          date,
+        });
 
-      expect(response.status).toBe(400);
-      expect(response.body.message).toBe(
-        "Data do agendamento inválida",
-      );
-      expect(prismaMock.appointment.updateMany).not.toHaveBeenCalled();
-      expect(prismaMock.patient.findFirst).not.toHaveBeenCalled();
-    });
+        expect(response.status).toBe(400);
+        expect(response.body.message).toBe(
+          "Data do agendamento inválida",
+        );
+        expect(prismaMock.appointment.updateMany).not.toHaveBeenCalled();
+        expect(prismaMock.patient.findFirst).not.toHaveBeenCalled();
+      },
+    );
 
     it("deve rejeitar a atualização quando houver conflito de horário", async () => {
       mockAuthorizedUser();
-      prismaMock.appointment.findFirst
-        .mockResolvedValueOnce(existingAppointment as never)
-        .mockResolvedValueOnce({
-          id: "other-appointment-id",
-          status: "confirmed",
-        } as never);
-
+      prismaMock.appointment.findFirst.mockResolvedValue(
+        existingAppointment as never,
+      );
       mockExistingPatient();
       mockExistingProfessional();
+
+      prismaMock.appointment.findMany.mockResolvedValue([
+        {
+          id: "other-appointment-id",
+          time: "11:00",
+          durationMinutes: 30,
+        },
+      ] as never);
 
       const response = await authenticatedPut().send({
         ...validAppointment,
@@ -444,21 +490,23 @@ describe("API", () => {
 
       expect(response.status).toBe(400);
       expect(response.body.message).toBe(
-        "O profissional já possui um agendamento nesse horário",
+        "O profissional já possui um agendamento que se sobrepõe a esse horário",
       );
       expect(prismaMock.appointment.updateMany).not.toHaveBeenCalled();
     });
 
     it("deve atualizar o agendamento quando não houver conflito", async () => {
       mockAuthorizedUser();
-      prismaMock.appointment.findFirst
-        .mockResolvedValueOnce(existingAppointment as never)
-        .mockResolvedValueOnce(null);
-
+      prismaMock.appointment.findFirst.mockResolvedValue(
+        existingAppointment as never,
+      );
       mockExistingPatient();
       mockExistingProfessional();
 
-      prismaMock.appointment.updateMany.mockResolvedValue({ count: 1 } as never);
+      prismaMock.appointment.findMany.mockResolvedValue([] as never);
+      prismaMock.appointment.updateMany.mockResolvedValue(
+        { count: 1 } as never,
+      );
 
       const response = await authenticatedPut().send({
         ...validAppointment,
@@ -476,26 +524,37 @@ describe("API", () => {
             id: appointmentId,
             clinicId: testUser.clinicId,
           },
+          data: expect.objectContaining({
+            durationMinutes: 30,
+          }),
         }),
       );
     });
 
-    it("deve impedir a atualização de um agendamento de outra clínica", async () => {
+    it("deve permitir atualizar a duração do agendamento", async () => {
       mockAuthorizedUser();
-      prismaMock.appointment.findFirst.mockResolvedValue(null);
+      prismaMock.appointment.findFirst.mockResolvedValue(
+        existingAppointment as never,
+      );
+      mockExistingPatient();
+      mockExistingProfessional();
 
-      const response = await authenticatedPut().send(validAppointment);
+      prismaMock.appointment.findMany.mockResolvedValue([] as never);
+      prismaMock.appointment.updateMany.mockResolvedValue(
+        { count: 1 } as never,
+      );
 
-      expect(response.status).toBe(404);
-      expect(response.body.message).toBe("Agendamento não encontrado");
-      expect(prismaMock.appointment.updateMany).not.toHaveBeenCalled();
+      const response = await authenticatedPut().send({
+        ...validAppointment,
+        durationMinutes: 60,
+      });
 
-      expect(prismaMock.appointment.findFirst).toHaveBeenCalledWith(
+      expect(response.status).toBe(200);
+      expect(prismaMock.appointment.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: {
-            id: appointmentId,
-            clinicId: testUser.clinicId,
-          },
+          data: expect.objectContaining({
+            durationMinutes: 60,
+          }),
         }),
       );
     });
@@ -576,7 +635,9 @@ describe("API", () => {
       prismaMock.appointment.findFirst.mockResolvedValue(
         existingAppointment as never,
       );
-      prismaMock.appointment.updateMany.mockResolvedValue({ count: 1 } as never);
+      prismaMock.appointment.updateMany.mockResolvedValue(
+        { count: 1 } as never,
+      );
 
       const response = await authenticatedStatus().send({
         status: "confirmed",
@@ -634,7 +695,9 @@ describe("API", () => {
       prismaMock.appointment.findFirst.mockResolvedValue(
         existingAppointment as never,
       );
-      prismaMock.appointment.deleteMany.mockResolvedValue({ count: 1 } as never);
+      prismaMock.appointment.deleteMany.mockResolvedValue(
+        { count: 1 } as never,
+      );
 
       const response = await authenticatedDelete();
 

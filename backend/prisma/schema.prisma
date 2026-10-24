@@ -43,15 +43,16 @@ model Patient {
 }
 
 model Appointment {
-  id             String   @id @default(uuid())
-  date           DateTime
-  time           String
-  service        String
-  status         String   @default("scheduled")
-  clinicId       String
-  patientId      String
-  professionalId String?
-  createdAt      DateTime @default(now())
+  id              String   @id @default(uuid())
+  date            DateTime
+  time            String
+  durationMinutes Int      @default(30)
+  service         String
+  status          String   @default("scheduled")
+  clinicId        String
+  patientId       String
+  professionalId  String?
+  createdAt       DateTime @default(now())
 
   clinic       Clinic  @relation(fields: [clinicId], references: [id])
   patient      Patient @relation(fields: [patientId], references: [id])
